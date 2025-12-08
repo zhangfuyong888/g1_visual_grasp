@@ -1,0 +1,25 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: unitree_ros2_example
+    relative_path: include/urdf/g1_29dof_with_hand.urdf
+  srdf:
+    relative_path: config/g1_29dof_with_hand.srdf
+  package_settings:
+    author_name: zfy
+    author_email: zfy@gmail.com
+    generated_timestamp: 1758466559
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+    state:
+      - position
+      - velocity
