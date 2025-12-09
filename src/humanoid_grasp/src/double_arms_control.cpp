@@ -341,156 +341,154 @@ private:
 
     ////原版
   // 插值发送
-  void moveTo(const std::array<float, NUM_ARM_JOINTS>& target,
-              std::array<float, NUM_ARM_JOINTS>& current,
-              float duration_sec, bool smooth) {
-    const int steps = std::max(1, static_cast<int>(duration_sec / control_dt_));
-    const float max_delta = max_joint_velocity_ * control_dt_;
-    std::array<float, NUM_ARM_JOINTS> command_pos_ = current; 
-    for (int i=0;i<steps;++i) {
-      float phase = static_cast<float>(i) / static_cast<float>(steps);
-      {
-        std::lock_guard<std::mutex> lk(state_mtx_);
-        for (size_t j=0;j<arm_joints_.size();++j) {
-          if (smooth) {
-            command_pos_[j] = current[j] * (1.0F - phase) + target[j] * phase;
-          } else {
-            float diff = target[j] - command_pos_[j];
-            float step = std::clamp(diff, -max_delta, max_delta);
-            command_pos_[j] += step;
-          }
-        }
-        sendLowCmd(command_pos_);
-      }
-      std::this_thread::sleep_for(sleep_time_);
-    }
-    // 结束时发一帧精准到位
-    {
-      std::lock_guard<std::mutex> lk(state_mtx_);
-      sendLowCmd(target);
-    }
-    init_flag_ = true;
-  }
+  // void moveTo(const std::array<float, NUM_ARM_JOINTS>& target,
+  //             std::array<float, NUM_ARM_JOINTS>& current,
+  //             float duration_sec, bool smooth) {
+  //   const int steps = std::max(1, static_cast<int>(duration_sec / control_dt_));
+  //   const float max_delta = max_joint_velocity_ * control_dt_;
+  //   std::array<float, NUM_ARM_JOINTS> command_pos_ = current; 
+  //   for (int i=0;i<steps;++i) {
+  //     float phase = static_cast<float>(i) / static_cast<float>(steps);
+  //     {
+  //       std::lock_guard<std::mutex> lk(state_mtx_);
+  //       for (size_t j=0;j<arm_joints_.size();++j) {
+  //         if (smooth) {
+  //           command_pos_[j] = current[j] * (1.0F - phase) + target[j] * phase;
+  //         } else {
+  //           float diff = target[j] - command_pos_[j];
+  //           float step = std::clamp(diff, -max_delta, max_delta);
+  //           command_pos_[j] += step;
+  //         }
+  //       }
+  //       sendLowCmd(command_pos_);
+  //     }
+  //     std::this_thread::sleep_for(sleep_time_);
+  //   }
+  //   // 结束时发一帧精准到位
+  //   {
+  //     std::lock_guard<std::mutex> lk(state_mtx_);
+  //     sendLowCmd(target);
+  //   }
+  //   init_flag_ = true;
+  // }
 
-      //原版
-  void sendLowCmd(const std::array<float, NUM_ARM_JOINTS>& q) {
-    LowCmd cmd;
-    for (size_t i=0;i<arm_joints_.size();++i) {
-      int idx = static_cast<int>(arm_joints_[i]);
-      cmd.motor_cmd[idx].q   = q[i];
-      cmd.motor_cmd[idx].dq  = 0.0F;
-      cmd.motor_cmd[idx].tau = 0.0F;
-      // 腰部更高刚度
-      if (i >= arm_joints_.size()-3) {
-        cmd.motor_cmd[idx].kp = kp_ * 7.0F;
-        cmd.motor_cmd[idx].kd = kd_  * 4.0F;
-      } else {
-        cmd.motor_cmd[idx].kp = kp_ * 4.0F;
-        cmd.motor_cmd[idx].kd = kd_  * 3.0F;
-      }
-    }
-    cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
-    lowcmd_pub_->publish(cmd);
-  }
+  //     //原版
+  // void sendLowCmd(const std::array<float, NUM_ARM_JOINTS>& q) {
+  //   LowCmd cmd;
+  //   for (size_t i=0;i<arm_joints_.size();++i) {
+  //     int idx = static_cast<int>(arm_joints_[i]);
+  //     cmd.motor_cmd[idx].q   = q[i];
+  //     cmd.motor_cmd[idx].dq  = 0.0F;
+  //     cmd.motor_cmd[idx].tau = 0.0F;
+  //     // 腰部更高刚度
+  //     if (i >= arm_joints_.size()-3) {
+  //       cmd.motor_cmd[idx].kp = kp_ * 7.0F;
+  //       cmd.motor_cmd[idx].kd = kd_  * 4.0F;
+  //     } else {
+  //       cmd.motor_cmd[idx].kp = kp_ * 4.0F;
+  //       cmd.motor_cmd[idx].kd = kd_  * 3.0F;
+  //     }
+  //   }
+  //   cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
+  //   lowcmd_pub_->publish(cmd);
+  // }
 
 
 // 多项式插值（五次多项式）版本，带速度前馈
-// void moveTo(const std::array<float, NUM_ARM_JOINTS>& target,
-//             std::array<float, NUM_ARM_JOINTS>& current,
-//             float duration_sec, bool /*smooth*/) {
+void moveTo(const std::array<float, NUM_ARM_JOINTS>& target,
+            std::array<float, NUM_ARM_JOINTS>& current,
+            float duration_sec, bool /*smooth*/) {
 
-//   // 总步数
-//   const int steps = std::max(1, static_cast<int>(duration_sec / control_dt_));
+  // 总步数
+  const int steps = std::max(1, static_cast<int>(duration_sec / control_dt_));
 
-//   // 起始关节位置快照
-//   std::array<float, NUM_ARM_JOINTS> q_start = current;
+  // 起始关节位置快照
+  std::array<float, NUM_ARM_JOINTS> q_start = current;
 
-//   // 这两个数组用来存每一拍要发出去的位置和速度
-//   std::array<float, NUM_ARM_JOINTS> q_des  = q_start;
-//   std::array<float, NUM_ARM_JOINTS> dq_des = {};
+  // 这两个数组用来存每一拍要发出去的位置和速度
+  std::array<float, NUM_ARM_JOINTS> q_des  = q_start;
+  std::array<float, NUM_ARM_JOINTS> dq_des = {};
 
-//   for (int i = 0; i <= steps; ++i) {
-//     float t = static_cast<float>(i) * control_dt_;
-//     if (t > duration_sec) t = duration_sec;
+  for (int i = 0; i <= steps; ++i) {
+    float t = static_cast<float>(i) * control_dt_;
+    if (t > duration_sec) t = duration_sec;
 
-//     // 归一化时间 s ∈ [0,1]
-//     float s = (duration_sec > 1e-6f) ? (t / duration_sec) : 1.0f;
-//     s = std::clamp(s, 0.0f, 1.0f);
+    // 归一化时间 s ∈ [0,1]
+    float s = (duration_sec > 1e-6f) ? (t / duration_sec) : 1.0f;
+    s = std::clamp(s, 0.0f, 1.0f);
 
-//     // 五次多项式 0-1 blend: 位置
-//     float s2 = s * s;
-//     float s3 = s2 * s;
-//     float s4 = s3 * s;
-//     float s5 = s4 * s;
+    // 五次多项式 0-1 blend: 位置
+    float s2 = s * s;
+    float s3 = s2 * s;
+    float s4 = s3 * s;
+    float s5 = s4 * s;
 
-//     float blend_pos = 10.0f * s3 - 15.0f * s4 + 6.0f * s5;
+    float blend_pos = 10.0f * s3 - 15.0f * s4 + 6.0f * s5;
 
-//     // 五次多项式的一阶导（对 s 求导）：速度部分
-//     // d/ds (10 s^3 - 15 s^4 + 6 s^5) = 30 s^2 - 60 s^3 + 30 s^4
-//     // dq/dt = blend_vel * (target - start) ，其中 ds/dt = 1/T
-//     float blend_vel = 0.0f;
-//     if (duration_sec > 1e-6f) {
-//       blend_vel = (30.0f * s2 - 60.0f * s3 + 30.0f * s4) / duration_sec;
-//     }
+    // 五次多项式的一阶导（对 s 求导）：速度部分
+    // d/ds (10 s^3 - 15 s^4 + 6 s^5) = 30 s^2 - 60 s^3 + 30 s^4
+    // dq/dt = blend_vel * (target - start) ，其中 ds/dt = 1/T
+    float blend_vel = 0.0f;
+    if (duration_sec > 1e-6f) {
+      blend_vel = (30.0f * s2 - 60.0f * s3 + 30.0f * s4) / duration_sec;
+    }
 
-//     {
-//       std::lock_guard<std::mutex> lk(state_mtx_);
+    {
+      std::lock_guard<std::mutex> lk(state_mtx_);
 
-//       for (size_t j = 0; j < arm_joints_.size(); ++j) {
-//         float dq_total = target[j] - q_start[j];
+      for (size_t j = 0; j < arm_joints_.size(); ++j) {
+        float dq_total = target[j] - q_start[j];
 
-//         // 位置参考
-//         q_des[j]  = q_start[j] + blend_pos * dq_total;
-//         // 速度参考
-//         dq_des[j] = blend_vel * dq_total;
-//       }
+        // 位置参考
+        q_des[j]  = q_start[j] + blend_pos * dq_total;
+        // 速度参考
+        dq_des[j] = blend_vel * dq_total;
+      }
 
-//       // 同时下发位置 + 速度
-//       sendLowCmd(q_des, dq_des);
-//     }
+      // 同时下发位置 + 速度
+      sendLowCmd(q_des, dq_des);
+    }
 
-//     std::this_thread::sleep_for(sleep_time_);
-//   }
+    std::this_thread::sleep_for(sleep_time_);
+  }
 
-//   // 最后一帧强制发目标位置，速度清零
-//   {
-//     std::lock_guard<std::mutex> lk(state_mtx_);
-//     std::array<float, NUM_ARM_JOINTS> dq_zero{};
-//     sendLowCmd(target, dq_zero);
-//   }
+  // 最后一帧强制发目标位置，速度清零
+  {
+    std::lock_guard<std::mutex> lk(state_mtx_);
+    std::array<float, NUM_ARM_JOINTS> dq_zero{};
+    sendLowCmd(target, dq_zero);
+  }
 
-//   init_flag_ = true;
-// }
+  init_flag_ = true;
+}
 
 // 发送位置 + 速度期望
-// void sendLowCmd(const std::array<float, NUM_ARM_JOINTS>& q,
-//                 const std::array<float, NUM_ARM_JOINTS>& dq)
-// {
-//   LowCmd cmd;
-//   for (size_t i = 0; i < arm_joints_.size(); ++i) {
-//     int idx = static_cast<int>(arm_joints_[i]);
+void sendLowCmd(const std::array<float, NUM_ARM_JOINTS>& q,
+                const std::array<float, NUM_ARM_JOINTS>& dq)
+{
+  LowCmd cmd;
+  for (size_t i = 0; i < arm_joints_.size(); ++i) {
+    int idx = static_cast<int>(arm_joints_[i]);
 
-//     cmd.motor_cmd[idx].q   = q[i];   // 位置参考
-//     cmd.motor_cmd[idx].dq  = dq[i];  // 速度参考
-//     cmd.motor_cmd[idx].tau = 0.0F;   // 先不加前馈力矩
+    cmd.motor_cmd[idx].q   = q[i];   // 位置参考
+    cmd.motor_cmd[idx].dq  = dq[i];  // 速度参考
+    cmd.motor_cmd[idx].tau = 0.0F;   // 先不加前馈力矩
 
-//     // 增益可以稍微柔一点（你后面可以根据手感再调）
-//     if (i >= arm_joints_.size() - 3) {   // 腰部 3 个
-//       cmd.motor_cmd[idx].kp = kp_ * 5.0F;   // 原来是 *7
-//       cmd.motor_cmd[idx].kd = kd_ * 4.0F;
-//     } else {                             // 双臂 14 个
-//       cmd.motor_cmd[idx].kp = kp_ * 3.0F;   // 原来是 *4
-//       cmd.motor_cmd[idx].kd = kd_ * 4.0F;   // 稍微大一点
-//     }
-//   }
+    // 增益可以稍微柔一点（你后面可以根据手感再调）
+    if (i >= arm_joints_.size() - 3) {   // 腰部 3 个
+      cmd.motor_cmd[idx].kp = kp_ * 5.0F;   // 原来是 *7
+      cmd.motor_cmd[idx].kd = kd_ * 4.0F;
+    } else {                             // 双臂 14 个
+      cmd.motor_cmd[idx].kp = kp_ * 3.0F;   // 原来是 *4
+      cmd.motor_cmd[idx].kd = kd_ * 4.0F;   // 稍微大一点
+    }
+  }
 
-//   // NOT_USED_JOINT 按原来逻辑保持
-//   cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
+  // NOT_USED_JOINT 按原来逻辑保持
+  cmd.motor_cmd[static_cast<int>(NOT_USED_JOINT)].q = 1.0F;
 
-//   lowcmd_pub_->publish(cmd);
-// }
-
-
+  lowcmd_pub_->publish(cmd);
+}
 
 
 };
