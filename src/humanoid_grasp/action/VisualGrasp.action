@@ -1,8 +1,0 @@
-# Goal
-float32 target_position
----
-# Result
-bool success
----
-# Feedback
-float32 current_position

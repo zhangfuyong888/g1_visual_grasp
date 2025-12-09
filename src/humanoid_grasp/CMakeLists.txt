@@ -27,14 +27,14 @@ find_package(kdl_parser REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
-
+find_package(geometry_msgs REQUIRED)
 
 
 
 # 生成接口文件
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "action/VisualGrasp.action"  # 添加你的 action 文件
-  DEPENDENCIES std_msgs  # 如果有依赖的其他消息
+  "action/ArmMove.action"  # 添加你的 action 文件
+  DEPENDENCIES std_msgs  geometry_msgs # 如果有依赖的其他消息
 )
 
 ament_export_dependencies(rosidl_default_runtime)

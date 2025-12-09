@@ -1,0 +1,13 @@
+# Goal: 客户端发送的目标
+bool is_right_arm               # true: 右臂, false: 左臂
+geometry_msgs/Pose target_pose  # 笛卡尔空间目标位姿
+float32 max_velocity_scale      # 速度缩放因子 (0.1 ~ 1.0), 默认 0.5
+---
+# Result: 执行结果
+bool success                    # 是否成功到达
+string message                  # 错误或状态信息
+---
+# Feedback: 执行过程中的反馈
+string state                    # 当前状态: "PLANNING", "MOVING", "IDLE"
+float32 progress                # 0.0 ~ 1.0 (进度百分比)
+float32 current_error           # 当前与目标的距离误差
