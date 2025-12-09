@@ -297,7 +297,7 @@ private:
         else reach_pub_left->publish(flag);
         RCLCPP_INFO(this->get_logger(), "%s arm reached.", g.is_right ? "RIGHT":"LEFT");
       } else {
-        RCLCPP_INFO(this->get_logger(), "%s arm error high : %f", g.is_right ? "RIGHT":"LEFT", max_err);
+        RCLCPP_INFO(this->get_logger(), "%s arms joint error high : %f", g.is_right ? "RIGHT":"LEFT", max_err);
       }
     }
   }
@@ -384,6 +384,8 @@ private:
                   
                   cmd_q[joint_idx] = val;
                   cmd_dq[joint_idx] = segment_vel[k]; // 速度前馈
+                  RCLCPP_INFO(this->get_logger(), "Step %d/%d, Joint %d: q=%.4f, dq=%.4f",
+                      s, steps, joint_idx, cmd_q[joint_idx], cmd_dq[joint_idx]);
               }
 
               // 发送命令
@@ -395,6 +397,8 @@ private:
               // 保持频率
               std::this_thread::sleep_for(sleep_time_);
           }
+          RCLCPP_INFO(this->get_logger(), "[%s] Executed segment %zu/%zu",
+                      g.is_right ? "RIGHT":"LEFT", i+1, g.trajectory.size());
       }
       
       // 轨迹结束，发送最后一个点，速度归零
