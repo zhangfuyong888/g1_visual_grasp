@@ -68,7 +68,7 @@ private:
         auto target_pose = get_object_pose();
         if (!target_pose) {
              // 仅供调试：如果没有视觉服务，硬编码一个点
-             target_pose = make_pose(0.3, -0.25, 0.15, 0, 0, 0, 1);
+             target_pose = make_pose(0.20, -0.10, 0.05, 0, 0, 0, 1);
              RCLCPP_WARN(get_logger(), "Vision failed, using FAKE target for sim.");
              std::this_thread::sleep_for(1s);
         }
@@ -84,7 +84,7 @@ private:
 
         RCLCPP_INFO(get_logger(), "Closing Gripper...");
         control_gripper(true);
-        std::this_thread::sleep_for(2s);
+        std::this_thread::sleep_for(4s);
 
         RCLCPP_INFO(get_logger(), "Lifting...");
         if (!move_arm_sync(true, lift)) continue;
@@ -92,7 +92,7 @@ private:
         RCLCPP_INFO(get_logger(), "Returning Home...");
         move_arm_sync(true, home_pose);
         
-        std::this_thread::sleep_for(2s);
+        std::this_thread::sleep_for(4s);
     }
   }
 
@@ -164,8 +164,8 @@ private:
   {
       grasp = obj; 
       grasp.position.x -= 0.05; 
-      pre = grasp; pre.position.z += 0.15; 
-      lift = grasp; lift.position.z += 0.15;
+      pre = grasp; pre.position.z += 0.05; 
+      lift = grasp; lift.position.z += 0.05;
   }
 
   bool wait_for_service_and_tf() {
