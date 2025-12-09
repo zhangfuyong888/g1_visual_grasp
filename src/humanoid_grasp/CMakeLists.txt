@@ -87,6 +87,15 @@ foreach(CPP_FILE ${CPP_FILES})
     )
 endforeach()
 
+# =========================================
+# 安装 Python 脚本
+# PROGRAMS 关键字会自动赋予文件可执行权限
+# =========================================
+install(PROGRAMS
+  scripts/scan.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 # 安装 launch 文件
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
