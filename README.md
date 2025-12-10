@@ -86,10 +86,23 @@ g1_ws
 
 
 
-## demo更新优化（完成抓取、扫码、放置demo）（计划12.8-12.6）
+## demo更新优化（完成抓取、扫码、放置demo）（计划12.8-12.9）
 #TODO
 1.手臂运动接口转为action接口，拆解抓取流程转化为action动作。（完成）
 
 2.关节运动转为笛卡尔末端运动，增加运动范围可解性。考虑末端步进运动(在moveit生成的每段轨迹之间进行五项式插值)（完成，若实际控制，可解性还是很差，就将运动前段过程用setPoseTarget，最后过程用computeCartesianPath）
 
 3.手部抓取姿态
+
+
+
+# action服务和客户端启动步骤（12.10）
+1. 启动action服务（机械臂底层规划控制）
+    ros2 launch humanoid_grasp arm_move_action.launch.py
+2. 启动action客户端（上层任务的下发）
+    ros2 run humanoid_grasp action_client
+3. 可查看角度和速度的曲线
+    ros2 run rqt_plot rqt_plot
+        //rqt_plot 使用示例:
+        // 查看速度曲线 /debug/velocity/data[0] -> data[6]
+        // 查看关节曲线 /debug/joints/data[0] -> data[6]
