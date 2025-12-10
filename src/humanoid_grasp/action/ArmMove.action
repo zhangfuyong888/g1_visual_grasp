@@ -10,4 +10,4 @@ string message                  # 错误或状态信息
 # Feedback: 执行过程中的反馈
 string state                    # 当前状态: "PLANNING", "MOVING", "IDLE"
 float32 progress                # 0.0 ~ 1.0 (进度百分比)
-float32 current_error           # 当前与目标的距离误差
+# float32 current_error           # 当前与目标的距离误差

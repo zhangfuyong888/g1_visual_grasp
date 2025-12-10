@@ -40,6 +40,20 @@ using ArmMove = humanoid_grasp::action::ArmMove;
 using GoalHandleArmMove = rclcpp_action::ServerGoalHandle<ArmMove>;
 namespace rvt = rviz_visual_tools;
 
+// 用命令行发送 Action 目标示例:
+// ros2 action send_goal /arm_move humanoid_grasp/action/ArmMove "{
+//   is_right_arm: true, 
+//   target_pose: {
+//     position: {x: 0.3, y: -0.04, z: 0.05}, 
+//     orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+//   }, 
+//   max_velocity_scale: 0.5
+// }" --feedback
+
+//rqt_plot 使用示例:
+// 查看速度曲线 /debug/velocity/data[0] -> data[6]
+// 查看关节曲线 /debug/joints/data[0] -> data[6]
+
 /**
  * @class G1DualArmActionServer
  * @brief G1 双臂控制服务端
@@ -98,7 +112,8 @@ public:
     real_joint_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 50);
     
     // 调试数据发布
-    debug_pos_pub_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/debug/positions", 10);
+    debug_joints_pub_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/debug/joints", 10);
+    debug_velocity_pub_ = this->create_publisher<std_msgs::msg::Float32MultiArray>("/debug/velocity", 10);
 
     // 3. Action Server
     using namespace std::placeholders;
@@ -166,7 +181,8 @@ private:
   rclcpp::Publisher<LowCmd>::SharedPtr lowcmd_pub_;
   rclcpp::Subscription<LowState>::SharedPtr lowstate_sub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr real_joint_pub_;
-  rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr debug_pos_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr debug_joints_pub_;
+  rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr debug_velocity_pub_;
   rclcpp_action::Server<ArmMove>::SharedPtr action_server_;
 
   std::shared_ptr<moveit::planning_interface::MoveGroupInterface> left_group_, right_group_;
@@ -269,13 +285,15 @@ private:
     goal_handle->publish_feedback(feedback);
 
     auto &group = goal->is_right_arm ? *right_group_ : *left_group_;
-    
+    group.setGoalPositionTolerance(0.03); // 3 cm 位置容差
+    group.setGoalOrientationTolerance(0.3); // 约 17 度 方向容差
+
     // 1. 规划笛卡尔路径
     std::vector<geometry_msgs::msg::Pose> waypoints;
     waypoints.push_back(goal->target_pose);
 
     moveit_msgs::msg::RobotTrajectory traj;
-    double fraction = group.computeCartesianPath(waypoints, 0.02, 3.0, traj);
+    double fraction = group.computeCartesianPath(waypoints, 0.03, 0.0, traj);
     
     RCLCPP_INFO(get_logger(), "[Action] 规划覆盖率: %.2f%%", fraction * 100.0);
 
@@ -286,6 +304,8 @@ private:
         goal_handle->abort(result);
         return;
     }
+    feedback->state = "PLAN RATE: " + std::to_string(fraction);
+    goal_handle->publish_feedback(feedback);
 
     // 2. 可视化目标
     visual_tools_->deleteAllMarkers();
@@ -432,6 +452,10 @@ private:
                 
                 std::array<float, NUM_ARM_JOINTS> cmd_q = base_state;
                 std::array<float, NUM_ARM_JOINTS> cmd_dq = {};
+                
+                // 发布cmd_q,cmd_dp用于调试，在rqt_plot中查看,不分左右臂
+                std_msgs::msg::Float32MultiArray joints_cmd_msg;
+                std_msgs::msg::Float32MultiArray velocity_cmd_msg;
 
                 // 更新活动关节
                 for(int k=0; k<7; ++k) {
@@ -441,8 +465,15 @@ private:
                     int idx = task->is_right ? 7+k : k; 
                     cmd_q[idx] = val;
                     cmd_dq[idx] = seg_vel[k]; // 前馈速度
+
+                    joints_cmd_msg.data.push_back(val); // 记录关节角发布
+                    velocity_cmd_msg.data.push_back(seg_vel[k]); // 记录关节速度发布
                 }
-                
+
+                // 发布cmd_q,cmd_dp用于调试信息
+                debug_joints_pub_->publish(joints_cmd_msg);
+                debug_velocity_pub_->publish(velocity_cmd_msg);
+
                 // 发送指令
                 {
                     std::lock_guard<std::mutex> lk(state_mtx_);
@@ -452,11 +483,6 @@ private:
                     } else {
                         sendLowCmd(cmd_q, cmd_dq);
                     }
-                    
-                    // 调试输出
-                    std_msgs::msg::Float32MultiArray p_msg;
-                    for(float v:cmd_q) p_msg.data.push_back(v);
-                    debug_pos_pub_->publish(p_msg);
                 }
                 std::this_thread::sleep_for(sleep_duration);
             }

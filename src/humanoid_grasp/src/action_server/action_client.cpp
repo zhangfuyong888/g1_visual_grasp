@@ -68,7 +68,7 @@ private:
         auto target_pose = get_object_pose();
         if (!target_pose) {
              // 仅供调试：如果没有视觉服务，硬编码一个点
-             target_pose = make_pose(0.20, -0.10, 0.05, 0, 0, 0, 1);
+             target_pose = make_pose(0.30, -0.04, 0.05, 0, 0, 0, 1);
              RCLCPP_WARN(get_logger(), "Vision failed, using FAKE target for sim.");
              std::this_thread::sleep_for(1s);
         }
